@@ -16,33 +16,4 @@ template<typename... Ts> class SwitchCondition final : public Condition<Ts...> {
   bool state_;
 };
 
-class SwitchStateTrigger final : public Trigger<bool> {
- public:
-  SwitchStateTrigger(Switch *a_switch) {
-    a_switch->add_on_state_callback([this](bool state) { this->trigger(state); });
-  }
-};
-
-class SwitchTurnOnTrigger final : public Trigger<> {
- public:
-  SwitchTurnOnTrigger(Switch *a_switch) {
-    a_switch->add_on_state_callback([this](bool state) {
-      if (state) {
-        this->trigger();
-      }
-    });
-  }
-};
-
-class SwitchTurnOffTrigger final : public Trigger<> {
- public:
-  SwitchTurnOffTrigger(Switch *a_switch) {
-    a_switch->add_on_state_callback([this](bool state) {
-      if (!state) {
-        this->trigger();
-      }
-    });
-  }
-};
-
 }  // namespace esphome::switch_
