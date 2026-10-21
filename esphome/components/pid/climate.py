@@ -10,6 +10,7 @@ from esphome.types import ConfigType
 pid_ns = cg.esphome_ns.namespace("pid")
 PIDClimate = pid_ns.class_("PIDClimate", climate.Climate, cg.Component)
 PIDAutotuneAction = pid_ns.class_("PIDAutotuneAction", automation.Action)
+PIDAutotuneAbortAction = pid_ns.class_("PIDAutotuneAbortAction", automation.Action)
 PIDResetIntegralTermAction = pid_ns.class_(
     "PIDResetIntegralTermAction", automation.Action
 )
@@ -29,6 +30,7 @@ CONF_HEAT_OUTPUT = "heat_output"
 CONF_NOISEBAND = "noiseband"
 CONF_POSITIVE_OUTPUT = "positive_output"
 CONF_NEGATIVE_OUTPUT = "negative_output"
+CONF_ON_AUTOTUNE_DONE = "on_autotune_done"
 CONF_MIN_INTEGRAL = "min_integral"
 CONF_MAX_INTEGRAL = "max_integral"
 CONF_OUTPUT_AVERAGING_SAMPLES = "output_averaging_samples"
@@ -51,6 +53,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_DEFAULT_TARGET_TEMPERATURE): cv.temperature,
             cv.Optional(CONF_COOL_OUTPUT): cv.use_id(output.FloatOutput),
             cv.Optional(CONF_HEAT_OUTPUT): cv.use_id(output.FloatOutput),
+            cv.Optional(CONF_ON_AUTOTUNE_DONE): automation.validate_automation({}),
             cv.Optional(CONF_DEADBAND_PARAMETERS): cv.Schema(
                 {
                     cv.Required(CONF_THRESHOLD_HIGH): cv.temperature_delta,
@@ -82,6 +85,15 @@ CONFIG_SCHEMA = cv.All(
         }
     ),
     cv.has_at_least_one_key(CONF_COOL_OUTPUT, CONF_HEAT_OUTPUT),
+)
+
+
+_CALLBACK_AUTOMATIONS = (
+    automation.CallbackAutomation(
+        CONF_ON_AUTOTUNE_DONE,
+        "add_on_autotune_done_callback",
+        [(cg.float_, "kp"), (cg.float_, "ki"), (cg.float_, "kd")],
+    ),
 )
 
 
@@ -133,6 +145,8 @@ async def to_code(config: ConfigType) -> None:
 
     cg.add(var.set_default_target_temperature(config[CONF_DEFAULT_TARGET_TEMPERATURE]))
 
+    await automation.build_callback_automations(var, config, _CALLBACK_AUTOMATIONS)
+
 
 @automation.register_action(
     "climate.pid.reset_integral_term",
@@ -145,6 +159,26 @@ async def to_code(config: ConfigType) -> None:
     synchronous=True,
 )
 async def pid_reset_integral_term(
+    config: ConfigType,
+    action_id: ID,
+    template_arg: cg.TemplateArguments,
+    args: TemplateArgsType,
+) -> MockObj:
+    paren = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, paren)
+
+
+@automation.register_action(
+    "climate.pid.autotune_abort",
+    PIDAutotuneAbortAction,
+    automation.maybe_simple_id(
+        {
+            cv.Required(CONF_ID): cv.use_id(PIDClimate),
+        }
+    ),
+    synchronous=True,
+)
+async def pid_autotune_abort(
     config: ConfigType,
     action_id: ID,
     template_arg: cg.TemplateArguments,

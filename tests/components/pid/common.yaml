@@ -13,6 +13,9 @@ esphome:
           ki: 0.0
           kd: 0.0
       - climate.pid.reset_integral_term: pid_climate
+      - climate.pid.autotune_abort: pid_climate
+      - climate.pid.autotune_abort:
+          id: pid_climate
 
 output:
   - platform: slow_pwm
@@ -39,6 +42,10 @@ climate:
     humidity_sensor: pid_template_sensor1
     default_target_temperature: 21°C
     heat_output: pid_slow_pwm
+    on_autotune_done:
+      - logger.log:
+          format: "Autotune done: kp=%.4f ki=%.4f kd=%.4f"
+          args: [kp, ki, kd]
     control_parameters:
       kp: 0.0
       ki: 0.0

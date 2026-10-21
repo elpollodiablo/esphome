@@ -74,11 +74,17 @@ class PIDClimate final : public climate::Climate, public Component {
   template<typename F> void add_on_pid_computed_callback(F &&callback) {
     this->pid_computed_callback_.add(std::forward<F>(callback));
   }
+  /// Called once when an autotune run has finished and applied its kp, ki and kd.
+  template<typename F> void add_on_autotune_done_callback(F &&callback) {
+    this->autotune_done_callback_.add(std::forward<F>(callback));
+  }
   void set_default_target_temperature(float default_target_temperature) {
     default_target_temperature_ = default_target_temperature;
   }
   void start_autotune(std::unique_ptr<PIDAutotuner> &&autotune);
   void reset_integral_term();
+  /// Stop a running autotune. The controller keeps its current kp, ki and kd.
+  void abort_autotune();
 
  protected:
   /// Override control to change settings of the climate device.
@@ -103,6 +109,7 @@ class PIDClimate final : public climate::Climate, public Component {
   /// Output value as reported by the PID controller, for PIDClimateSensor
   float output_value_;
   CallbackManager<void()> pid_computed_callback_;
+  CallbackManager<void(float, float, float)> autotune_done_callback_;
   float default_target_temperature_;
   std::unique_ptr<PIDAutotuner> autotuner_;
   bool do_publish_ = false;
@@ -128,6 +135,16 @@ template<typename... Ts> class PIDAutotuneAction final : public Action<Ts...> {
   float noiseband_;
   float positive_output_;
   float negative_output_;
+  PIDClimate *parent_;
+};
+
+template<typename... Ts> class PIDAutotuneAbortAction final : public Action<Ts...> {
+ public:
+  PIDAutotuneAbortAction(PIDClimate *parent) : parent_(parent) {}
+
+  void play(const Ts &...x) { this->parent_->abort_autotune(); }
+
+ protected:
   PIDClimate *parent_;
 };
 

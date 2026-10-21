@@ -143,6 +143,7 @@ void PIDClimate::update_pid_() {
         this->controller_.ki_ = res.result_params->ki;
         this->controller_.kd_ = res.result_params->kd;
         // keep autotuner instance so that subsequent dump_configs will print the long result message.
+        this->autotune_done_callback_.call(this->controller_.kp_, this->controller_.ki_, this->controller_.kd_);
       } else {
         value = res.output;
       }
@@ -184,5 +185,13 @@ void PIDClimate::start_autotune(std::unique_ptr<PIDAutotuner> &&autotune) {
 }
 
 void PIDClimate::reset_integral_term() { this->controller_.reset_accumulated_integral(); }
+
+void PIDClimate::abort_autotune() {
+  if (this->autotuner_ == nullptr || this->autotuner_->is_finished())
+    return;
+  ESP_LOGI(TAG, "%s: Autotune aborted, keeping the current control parameters", this->get_name().c_str());
+  this->autotuner_.reset();
+  this->cancel_interval("autotune-progress");
+}
 
 }  // namespace esphome::pid
